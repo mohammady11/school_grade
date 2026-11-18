@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>سامانه مدیریت نمرات</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+
+
+</head>
+<body>
+
+<!-- ================= صفحه ورود ================= -->
+<section id="login-screen" class="login-screen">
+  <div class="login-bg"></div>
+
+  <div class="login-card">
+    <div class="login-logo">🎓</div>
+    <h1>سامانه مدیریت نمرات</h1>
+    <p class="login-sub">برای ورود، نقش خود را انتخاب کنید</p>
+
+    <div class="role-tabs" id="role-tabs">
+      <button class="role-tab active" data-role="student">دانش‌آموز</button>
+      <button class="role-tab" data-role="teacher">معلم</button>
+      <button class="role-tab" data-role="admin">مدیر</button>
+    </div>
+
+    <form id="login-form" class="login-form">
+      <label class="field">
+        <span>نام کاربری</span>
+        <input type="text" id="login-username" placeholder="نام کاربری خود را وارد کنید" autocomplete="username" required />
+      </label>
+
+      <label class="field">
+        <span>رمز عبور</span>
+        <input type="password" id="login-password" placeholder="••••••" autocomplete="current-password" required />
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-block">ورود به سامانه</button>
+    </form>
+
+    <div class="demo-box" id="demo-box"></div>
+  </div>
+</section>
+
+<!-- ================= پنل اصلی ================= -->
+<div id="app" class="app hidden">
+  <div class="overlay" id="overlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">🎓</div>
+      <div class="brand-text">
+        <h1>سامانه نمرات</h1>
+        <span id="brand-sub">پنل کاربری</span>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav"></nav>
+
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar" id="user-avatar">؟</div>
+        <div class="user-info">
+          <strong id="user-name">—</strong>
+          <span id="user-role">—</span>
+        </div>
+      </div>
+      <button class="btn-logout" id="logout-btn" title="خروج از حساب">⏻</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menu-btn" aria-label="منو">☰</button>
+      <h2 id="page-title">داشبورد</h2>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </header>
+
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ============================================================
+   سامانه مدیریت نمرات — منطق برنامه (JavaScript)
+   داده‌ها در localStorage ذخیره می‌شوند
+   ============================================================ */
+
+const STORAGE_KEY = 'grade_manager_data_v1';
+const SESSION_KEY = 'grade_manager_session_v1';
+
+/* ---------- داده‌های اولیه (Seed) ---------- */
+function seedData() {
+  return {
+    users: [
+      { id: 'u1', username: 'admin', password: '1234', role: 'admin', name: 'مدیر سامانه', avatar: 'م' },
+      { id: 'u2', username: 'teacher', password: '1234', role: 'teacher', name: 'استاد احمدی', avatar: 'ا' },
+      { id: 'u3', username: 'teacher2', password: '1234', role: 'teacher', name: 'استاد رضایی', avatar: 'ر' },
+      { id: 'u4', username: 'student', password: '1234', role: 'student', name: 'علی محمدی', avatar: 'ع', classId: 'c1' },
+      { id: 'u5', username: 'student2', password: '1234', role: 'student', name: 'سارا حسینی', avatar: 'س', classId: 'c1' },
+      { id: 'u6', username: 'student3', password: '1234', role: 'student', name: 'رضا کریمی', avatar: 'ر', classId: 'c2' },
+      { id: 'u7', username: 'student4', password: '1234', role: 'student', name: 'مریم نوری', avatar: 'م', classId: 'c2' }
+    ],
+    classes: [
+      { id: 'c1', name: 'دهم ریاضی - الف' },
+      { id: 'c2', name: 'دهم تجربی - ب' }
+    ],
+    courses: [
+      { id: 'co1', name: 'ریاضی', teacherId: 'u2', classId: 'c1' },
+      { id: 'co2', name: 'فیزیک', teacherId: 'u2', classId: 'c1' },
+      { id: 'co3', name: 'شیمی', teacherId: 'u3', classId: 'c1' },
+      { id: 'co4', name: 'زیست', teacherId: 'u3', classId: 'c2' },
+      { id: 'co5', name: 'ادبیات', teacherId: 'u2', classId: 'c2' }
+    ],
+    grades: [
+      { id: 'g1', studentId: 'u4', courseId: 'co1', score: 18.5 },
+      { id: 'g2', studentId: 'u4', courseId: 'co2', score: 16 },
+      { id: 'g3', studentId: 'u4', courseId: 'co3', score: 19 },
+      { id: 'g4', studentId: 'u5', courseId: 'co1', score: 15 },
+      { id: 'g5', studentId: 'u5', courseId: 'co2', score: 17.5 },
+      { id: 'g6', studentId: 'u5', courseId: 'co3', score: 14 },
+      { id: 'g7', studentId: 'u6', courseId: 'co4', score: 20 },
+      { id: 'g8', studentId: 'u6', courseId: 'co5', score: 18 },
+      { id: 'g9', studentId: 'u7', courseId: 'co4', score: 12 },
+      { id: 'g10', studentId: 'u7', courseId: 'co5', score: 16.5 }
+    ]
+  };
+}
+
+/* ---------- مدیریت داده ---------- */
+let DB = null;
+let session = null;
+
+function loadDB() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { DB = JSON.parse(raw); return; } catch (e) { /* ignore */ }
+  }
+  DB = seedData();
+  saveDB();
+}
+
+function saveDB() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+}
+
+function loadSession() {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (raw) {
+    try { session = JSON.parse(raw); } catch (e) { session = null; }
+  }
+}
+
+function saveSession() {
+  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(SESSION_KEY);
+}
+
+/* ---------- ابزارهای عمومی ---------- */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function uid(prefix = 'id') {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function fmtScore(n) {
+  const v = Number(n);
+  if (isNaN(v)) return '—';
+  return v.toLocaleString('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function toast(message, type = '') {
+  const el = $('#toast');
+  el.textContent = message;
+  el.className = 'toast ' + type;
+  requestAnimationFrame(() => el.classList.add('show'));
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ---------- مودال ---------- */
+function openModal({ title, body, footer }) {
+  const root = $('#modal-root');
+  root.innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h3>${escapeHTML(title)}</h3>
+          <button class="modal-close" id="modal-close" aria-label="بستن">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body">${body}</div>
+        ${footer ? `<div class="modal-footer" id="modal-footer">${footer}</div>` : ''}
+      </div>
+    </div>
+  `;
+  const close = () => { root.innerHTML = ''; };
+  $('#modal-close').addEventListener('click', close);
+  $('#modal-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'modal-backdrop') close();
+  });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+  });
+  return { close, root };
+}
+
+/* ---------- توابع کمکی داده ---------- */
+function getUser(id) { return DB.users.find(u => u.id === id); }
+function getClass(id) { return DB.classes.find(c => c.id === id); }
+function getCourse(id) { return DB.courses.find(c => c.id === id); }
+function getStudentsOfClass(classId) {
+  return DB.users.filter(u => u.role === 'student' && u.classId === classId);
+}
+function getCoursesOfTeacher(teacherId) {
+  return DB.courses.filter(c => c.teacherId === teacherId);
+}
+function getGradesOfStudent(studentId) {
+  return DB.grades.filter(g => g.studentId === studentId);
+}
+function getGrade(studentId, courseId) {
+  return DB.grades.find(g => g.studentId === studentId && g.courseId === courseId);
+}
+function averageOf(studentId) {
+  const gs = getGradesOfStudent(studentId);
+  if (!gs.length) return null;
+  return gs.reduce((s, g) => s + Number(g.score), 0) / gs.length;
+}
+function scoreBadgeClass(score) {
+  if (score >= 17) return 'green';
+  if (score >= 12) return 'amber';
+  return 'red';
+}
+function roleLabel(role) {
+  return role === 'admin' ? 'مدیر' : role === 'teacher' ? 'معلم' : 'دانش‌آموز';
+}
+
+/* ============================================================
+   بخش ورود
+   ============================================================ */
+let selectedRole = 'student';
+
+const DEMO_ACCOUNTS = {
+  student: { username: 'student', password: '1234' },
+  teacher: { username: 'teacher', password: '1234' },
+  admin: { username: 'admin', password: '1234' }
+};
+
+function renderDemoBox() {
+  const d = DEMO_ACCOUNTS[selectedRole];
+  $('#demo-box').innerHTML = `
+    <strong>🔑 حساب نمونه (${roleLabel(selectedRole)}):</strong>
+    <div class="demo-item"><span>نام کاربری</span><code>${escapeHTML(d.username)}</code></div>
+    <div class="demo-item"><span>رمز عبور</span><code>${escapeHTML(d.password)}</code></div>
+  `;
+}
+
+function initLogin() {
+  $$('.role-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.role-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedRole = btn.dataset.role;
+      renderDemoBox();
+    });
+  });
+
+  $('#login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = $('#login-username').value.trim();
+    const password = $('#login-password').value.trim();
+    if (!username || !password) {
+      toast('نام کاربری و رمز عبور را وارد کنید', 'warning');
+      return;
+    }
+    const user = DB.users.find(u => u.username === username && u.password === password);
+    if (!user) { toast('نام کاربری یا رمز عبور اشتباه است', 'error'); return; }
+    if (user.role !== selectedRole) {
+      toast(`این حساب متعلق به نقش «${roleLabel(user.role)}» است`, 'error');
+      return;
+    }
+    session = { userId: user.id };
+    saveSession();
+    toast(`خوش آمدید ${user.name}`, 'success');
+    enterApp();
+  });
+
+  renderDemoBox();
+}
+
+/* ============================================================
+   ورود به برنامه و رندر کلی
+   ============================================================ */
+let currentPage = 'dashboard';
+
+function enterApp() {
+  const user = getUser(session.userId);
+  if (!user) { logout(); return; }
+  $('#login-screen').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#user-avatar').textContent = user.avatar || user.name[0];
+  $('#user-name').textContent = user.name;
+  $('#user-role').textContent = roleLabel(user.role);
+  $('#brand-sub').textContent = 'پنل ' + roleLabel(user.role);
+  currentPage = 'dashboard';
+  renderNav();
+  renderPage();
+  closeSidebar();
+}
+
+function logout() {
+  session = null;
+  saveSession();
+  $('#app').classList.add('hidden');
+  $('#login-screen').classList.remove('hidden');
+  $('#login-username').value = '';
+  $('#login-password').value = '';
+  toast('از حساب خارج شدید', 'success');
+}
+
+/* ---------- منو بر اساس نقش ---------- */
+const NAV_CONFIG = {
+  admin: [
+    { key: 'dashboard', icon: '📊', label: 'داشبورد' },
+    { key: 'users', icon: '👥', label: 'مدیریت کاربران' },
+    { key: 'classes', icon: '🏫', label: 'مدیریت کلاس‌ها' },
+    { key: 'courses', icon: '📚', label: 'مدیریت دروس' },
+    { key: 'grades', icon: '📝', label: 'همه نمرات' }
+  ],
+  teacher: [
+    { key: 'dashboard', icon: '📊', label: 'داشبورد' },
+    { key: 'mycourses', icon: '📚', label: 'دروس من' },
+    { key: 'enterGrades', icon: '✏️', label: 'ثبت نمرات' },
+    { key: 'studentList', icon: '👨‍🎓', label: 'لیست دانش‌آموزان' }
+  ],
+  student: [
+    { key: 'dashboard', icon: '📊', label: 'داشبورد' },
+    { key: 'myGrades', icon: '📝', label: 'کارنامه من' }
+  ]
+};
+
+function renderNav() {
+  const user = getUser(session.userId);
+  const items = NAV_CONFIG[user.role] || [];
+  $('#nav').innerHTML = items.map(it => `
+    <button class="nav-item ${it.key === currentPage ? 'active' : ''}" data-page="${it.key}">
+      <span class="nav-icon">${it.icon}</span>
+      <span>${it.label}</span>
+    </button>
+  `).join('');
+  $$('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentPage = btn.dataset.page;
+      renderNav();
+      renderPage();
+      closeSidebar();
+    });
+  });
+}
+
+function setPageTitle(title) { $('#page-title').textContent = title; }
+
+/* ============================================================
+   رندر صفحه‌ها بر اساس نقش و صفحه فعال
+   ============================================================ */
+function renderPage() {
+  const user = getUser(session.userId);
+  $('#topbar-actions').innerHTML = '';
+  if (user.role === 'admin') renderAdminPage(user);
+  else if (user.role === 'teacher') renderTeacherPage(user);
+  else renderStudentPage(user);
+}
+
+/* ============================================================
+   پنل مدیر
+   ============================================================ */
+function renderAdminPage(user) {
+  switch (currentPage) {
+    case 'dashboard': adminDashboard(user); break;
+    case 'users': adminUsers(user); break;
+    case 'classes': adminClasses(user); break;
+    case 'courses': adminCourses(user); break;
+    case 'grades': adminGrades(user); break;
+    default: adminDashboard(user);
+  }
+}
+
+function adminDashboard(user) {
+  setPageTitle('داشبورد مدیر');
+  const students = DB.users.filter(u => u.role === 'student');
+  const teachers = DB.users.filter(u => u.role === 'teacher');
+  const allScores = DB.grades.map(g => Number(g.score));
+  const avg = allScores.length ? (allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
+
+  $('#content').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon indigo">👨‍🎓</div>
+        <div class="stat-info"><span class="stat-value">${students.length.toLocaleString('fa-IR')}</span><span class="stat-label">دانش‌آموز</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">👨‍🏫</div>
+        <div class="stat-info"><span class="stat-value">${teachers.length.toLocaleString('fa-IR')}</span><span class="stat-label">معلم</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">🏫</div>
+        <div class="stat-info"><span class="stat-value">${DB.classes.length.toLocaleString('fa-IR')}</span><span class="stat-label">کلاس</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">📚</div>
+        <div class="stat-info"><span class="stat-value">${DB.courses.length.toLocaleString('fa-IR')}</span><span class="stat-label">درس</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">📝</div>
+        <div class="stat-info"><span class="stat-value">${DB.grades.length.toLocaleString('fa-IR')}</span><span class="stat-label">نمره ثبت‌شده</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon indigo">📈</div>
+        <div class="stat-info"><span class="stat-value">${fmtScore(avg)}</span><span class="stat-label">میانگین کل</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 آخرین نمرات ثبت‌شده</h3>
+        <span class="badge indigo">${DB.grades.length} نمره</span>
+      </div>
+      ${renderGradesTable(DB.grades.slice(-8).reverse())}
+    </div>
+  `;
+}
+
+function renderGradesTable(grades) {
+  if (!grades.length) {
+    return `<div class="empty"><div class="empty-icon">📭</div><p>نمره‌ای برای نمایش وجود ندارد</p></div>`;
+  }
+  const rows = grades.map(g => {
+    const st = getUser(g.studentId);
+    const co = getCourse(g.courseId);
+    const score = Number(g.score);
+    return `<tr>
+      <td>${escapeHTML(st ? st.name : '—')}</td>
+      <td>${escapeHTML(co ? co.name : '—')}</td>
+      <td><span class="badge ${scoreBadgeClass(score)}">${fmtScore(score)}</span></td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>دانش‌آموز</th><th>درس</th><th>نمره</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function adminUsers(user) {
+  setPageTitle('مدیریت کاربران');
+  $('#topbar-actions').innerHTML = `<button class="btn btn-primary btn-sm" id="add-user-btn">➕ کاربر جدید</button>`;
+  $('#add-user-btn').addEventListener('click', () => userModal());
+
+  const rows = DB.users.map(u => {
+    const cls = u.classId ? getClass(u.classId) : null;
+    return `<tr>
+      <td>${escapeHTML(u.name)}</td>
+      <td><code>${escapeHTML(u.username)}</code></td>
+      <td><span class="badge ${u.role === 'admin' ? 'red' : u.role === 'teacher' ? 'blue' : 'green'}">${roleLabel(u.role)}</span></td>
+      <td>${escapeHTML(cls ? cls.name : '—')}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" data-edit-user="${u.id}">✏️ ویرایش</button>
+        <button class="btn btn-danger btn-sm" data-del-user="${u.id}">🗑 حذف</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>👥 لیست کاربران</h3><span class="badge indigo">${DB.users.length} کاربر</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>کلاس</th><th>عملیات</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  $$('[data-edit-user]').forEach(b => b.addEventListener('click', () => userModal(b.dataset.editUser)));
+  $$('[data-del-user]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.delUser;
+    if (id === session.userId) { toast('نمی‌توانید حساب خودتان را حذف کنید', 'error'); return; }
+    if (!confirm('آیا از حذف این کاربر مطمئن هستید؟')) return;
+    DB.users = DB.users.filter(u => u.id !== id);
+    DB.grades = DB.grades.filter(g => g.studentId !== id);
+    saveDB();
+    toast('کاربر حذف شد', 'success');
+    adminUsers(user);
+  }));
+}
+
+function userModal(editId) {
+  const editing = editId ? getUser(editId) : null;
+  const classOptions = DB.classes.map(c =>
+    `<option value="${c.id}" ${editing && editing.classId === c.id ? 'selected' : ''}>${escapeHTML(c.name)}</option>`
+  ).join('');
+
+  const body = `
+    <label class="field"><span>نام کامل</span>
+      <input type="text" id="m-name" value="${editing ? escapeHTML(editing.name) : ''}" placeholder="مثلاً علی محمدی" />
+    </label>
+    <label class="field"><span>نام کاربری</span>
+      <input type="text" id="m-username" value="${editing ? escapeHTML(editing.username) : ''}" placeholder="username" />
+    </label>
+    <label class="field"><span>رمز عبور</span>
+      <input type="text" id="m-password" value="${editing ? escapeHTML(editing.password) : ''}" placeholder="1234" />
+    </label>
+    <label class="field"><span>نقش</span>
+      <select id="m-role">
+        <option value="student" ${editing && editing.role === 'student' ? 'selected' : ''}>دانش‌آموز</option>
+        <option value="teacher" ${editing && editing.role === 'teacher' ? 'selected' : ''}>معلم</option>
+        <option value="admin" ${editing && editing.role === 'admin' ? 'selected' : ''}>مدیر</option>
+      </select>
+    </label>
+    <label class="field" id="m-class-field" style="${editing && editing.role !== 'student' ? 'display:none' : ''}">
+      <span>کلاس (برای دانش‌آموز)</span>
+      <select id="m-class"><option value="">— بدون کلاس —</option>${classOptions}</select>
+    </label>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" id="m-cancel">انصراف</button>
+    <button class="btn btn-primary" id="m-save">${editing ? 'ذخیره تغییرات' : 'ایجاد کاربر'}</button>
+  `;
+
+  const modal = openModal({ title: editing ? 'ویرایش کاربر' : 'کاربر جدید', body, footer });
+
+  const roleSel = $('#m-role');
+  roleSel.addEventListener('change', () => {
+    $('#m-class-field').style.display = roleSel.value === 'student' ? '' : 'none';
+  });
+
+  $('#m-cancel').addEventListener('click', modal.close);
+  $('#m-save').addEventListener('click', () => {
+    const name = $('#m-name').value.trim();
+    const username = $('#m-username').value.trim();
+    const password = $('#m-password').value.trim();
+    const role = roleSel.value;
+    const classId = role === 'student' ? ($('#m-class').value || null) : null;
+
+    if (!name || !username || !password) { toast('همه فیلدها الزامی است', 'warning'); return; }
+    const dup = DB.users.find(u => u.username === username && u.id !== (editing ? editing.id : null));
+    if (dup) { toast('این نام کاربری قبلاً ثبت شده است', 'error'); return; }
+
+    if (editing) {
+      Object.assign(editing, { name, username, password, role, classId, avatar: name[0] });
+      toast('کاربر ویرایش شد', 'success');
+    } else {
+      DB.users.push({ id: uid('u'), name, username, password, role, classId, avatar: name[0] });
+      toast('کاربر ایجاد شد', 'success');
+    }
+    saveDB();
+    modal.close();
+    adminUsers(getUser(session.userId));
+  });
+}
+
+function adminClasses(user) {
+  setPageTitle('مدیریت کلاس‌ها');
+  $('#topbar-actions').innerHTML = `<button class="btn btn-primary btn-sm" id="add-class-btn">➕ کلاس جدید</button>`;
+  $('#add-class-btn').addEventListener('click', () => classModal());
+
+  const rows = DB.classes.map(c => {
+    const count = getStudentsOfClass(c.id).length;
+    return `<tr>
+      <td>${escapeHTML(c.name)}</td>
+      <td>${count.toLocaleString('fa-IR')} نفر</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" data-edit-class="${c.id}">✏️ ویرایش</button>
+        <button class="btn btn-danger btn-sm" data-del-class="${c.id}">🗑 حذف</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>🏫 لیست کلاس‌ها</h3><span class="badge indigo">${DB.classes.length} کلاس</span></div>
+      ${DB.classes.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>نام کلاس</th><th>تعداد دانش‌آموز</th><th>عملیات</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : `<div class="empty"><div class="empty-icon">🏫</div><p>کلاسی وجود ندارد</p></div>`}
+    </div>
+  `;
+
+  $$('[data-edit-class]').forEach(b => b.addEventListener('click', () => classModal(b.dataset.editClass)));
+  $$('[data-del-class]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.delClass;
+    if (getStudentsOfClass(id).length) { toast('ابتدا دانش‌آموزان این کلاس را جابه‌جا کنید', 'error'); return; }
+    if (!confirm('حذف این کلاس؟')) return;
+    DB.classes = DB.classes.filter(c => c.id !== id);
+    DB.courses = DB.courses.filter(c => c.classId !== id);
+    DB.grades = DB.grades.filter(g => {
+      const co = getCourse(g.courseId);
+      return co ? co.classId !== id : false;
+    });
+    saveDB();
+    toast('کلاس حذف شد', 'success');
+    adminClasses(user);
+  }));
+}
+
+function classModal(editId) {
+  const editing = editId ? getClass(editId) : null;
+  const body = `
+    <label class="field"><span>نام کلاس</span>
+      <input type="text" id="mc-name" value="${editing ? escapeHTML(editing.name) : ''}" placeholder="مثلاً دهم ریاضی - الف" />
+    </label>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" id="mc-cancel">انصراف</button>
+    <button class="btn btn-primary" id="mc-save">${editing ? 'ذخیره' : 'ایجاد'}</button>
+  `;
+  const modal = openModal({ title: editing ? 'ویرایش کلاس' : 'کلاس جدید', body, footer });
+  $('#mc-cancel').addEventListener('click', modal.close);
+  $('#mc-save').addEventListener('click', () => {
+    const name = $('#mc-name').value.trim();
+    if (!name) { toast('نام کلاس الزامی است', 'warning'); return; }
+    if (editing) { editing.name = name; toast('کلاس ویرایش شد', 'success'); }
+    else { DB.classes.push({ id: uid('c'), name }); toast('کلاس ایجاد شد', 'success'); }
+    saveDB();
+    modal.close();
+    adminClasses(getUser(session.userId));
+  });
+}
+
+function adminCourses(user) {
+  setPageTitle('مدیریت دروس');
+  $('#topbar-actions').innerHTML = `<button class="btn btn-primary btn-sm" id="add-course-btn">➕ درس جدید</button>`;
+  $('#add-course-btn').addEventListener('click', () => courseModal());
+
+  const rows = DB.courses.map(c => {
+    const t = getUser(c.teacherId);
+    const cl = getClass(c.classId);
+    return `<tr>
+      <td>${escapeHTML(c.name)}</td>
+      <td>${escapeHTML(t ? t.name : '—')}</td>
+      <td>${escapeHTML(cl ? cl.name : '—')}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" data-edit-course="${c.id}">✏️ ویرایش</button>
+        <button class="btn btn-danger btn-sm" data-del-course="${c.id}">🗑 حذف</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>📚 لیست دروس</h3><span class="badge indigo">${DB.courses.length} درس</span></div>
+      ${DB.courses.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>نام درس</th><th>معلم</th><th>کلاس</th><th>عملیات</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : `<div class="empty"><div class="empty-icon">📚</div><p>درسی وجود ندارد</p></div>`}
+    </div>
+  `;
+
+  $$('[data-edit-course]').forEach(b => b.addEventListener('click', () => courseModal(b.dataset.editCourse)));
+  $$('[data-del-course]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.delCourse;
+    if (!confirm('حذف این درس؟')) return;
+    DB.courses = DB.courses.filter(c => c.id !== id);
+    DB.grades = DB.grades.filter(g => g.courseId !== id);
+    saveDB();
+    toast('درس حذف شد', 'success');
+    adminCourses(user);
+  }));
+}
+
+function courseModal(editId) {
+  const editing = editId ? getCourse(editId) : null;
+  const teachers = DB.users.filter(u => u.role === 'teacher');
+  const teacherOpts = teachers.map(t => `<option value="${t.id}" ${editing && editing.teacherId === t.id ? 'selected' : ''}>${escapeHTML(t.name)}</option>`).join('');
+  const classOpts = DB.classes.map(c => `<option value="${c.id}" ${editing && editing.classId === c.id ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('');
+
+  const body = `
+    <label class="field"><span>نام درس</span>
+      <input type="text" id="mco-name" value="${editing ? escapeHTML(editing.name) : ''}" placeholder="مثلاً ریاضی" />
+    </label>
+    <label class="field"><span>معلم</span>
+      <select id="mco-teacher">${teacherOpts || '<option value="">— معلمی وجود ندارد —</option>'}</select>
+    </label>
+    <label class="field"><span>کلاس</span>
+      <select id="mco-class">${classOpts || '<option value="">— کلاسی وجود ندارد —</option>'}</select>
+    </label>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" id="mco-cancel">انصراف</button>
+    <button class="btn btn-primary" id="mco-save">${editing ? 'ذخیره' : 'ایجاد'}</button>
+  `;
+  const modal = openModal({ title: editing ? 'ویرایش درس' : 'درس جدید', body, footer });
+  $('#mco-cancel').addEventListener('click', modal.close);
+  $('#mco-save').addEventListener('click', () => {
+    const name = $('#mco-name').value.trim();
+    const teacherId = $('#mco-teacher').value;
+    const classId = $('#mco-class').value;
+    if (!name || !teacherId || !classId) { toast('همه فیلدها الزامی است', 'warning'); return; }
+    if (editing) {
+      Object.assign(editing, { name, teacherId, classId });
+      toast('درس ویرایش شد', 'success');
+    } else {
+      DB.courses.push({ id: uid('co'), name, teacherId, classId });
+      toast('درس ایجاد شد', 'success');
+    }
+    saveDB();
+    modal.close();
+    adminCourses(getUser(session.userId));
+  });
+}
+
+function adminGrades(user) {
+  setPageTitle('همه نمرات');
+  const rows = DB.grades.map(g => {
+    const st = getUser(g.studentId);
+    const co = getCourse(g.courseId);
+    const score = Number(g.score);
+    return `<tr>
+      <td>${escapeHTML(st ? st.name : '—')}</td>
+      <td>${escapeHTML(co ? co.name : '—')}</td>
+      <td><span class="badge ${scoreBadgeClass(score)}">${fmtScore(score)}</span></td>
+      <td><button class="btn btn-danger btn-sm" data-del-grade="${g.id}">🗑 حذف</button></td>
+    </tr>`;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>📝 تمام نمرات ثبت‌شده</h3><span class="badge indigo">${DB.grades.length} نمره</span></div>
+      ${DB.grades.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>دانش‌آموز</th><th>درس</th><th>نمره</th><th>عملیات</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : `<div class="empty"><div class="empty-icon">📭</div><p>نمره‌ای ثبت نشده است</p></div>`}
+    </div>
+  `;
+
+  $$('[data-del-grade]').forEach(b => b.addEventListener('click', () => {
+    if (!confirm('حذف این نمره؟')) return;
+    DB.grades = DB.grades.filter(g => g.id !== b.dataset.delGrade);
+    saveDB();
+    toast('نمره حذف شد', 'success');
+    adminGrades(user);
+  }));
+}
+
+/* ============================================================
+   پنل معلم
+   ============================================================ */
+function renderTeacherPage(user) {
+  switch (currentPage) {
+    case 'dashboard': teacherDashboard(user); break;
+    case 'mycourses': teacherCourses(user); break;
+    case 'enterGrades': teacherEnterGrades(user); break;
+    case 'studentList': teacherStudentList(user); break;
+    default: teacherDashboard(user);
+  }
+}
+
+function teacherDashboard(user) {
+  setPageTitle('داشبورد معلم');
+  const courses = getCoursesOfTeacher(user.id);
+  const totalStudents = new Set(courses.flatMap(c => getStudentsOfClass(c.classId).map(s => s.id))).size;
+  const gradeCount = DB.grades.filter(g => courses.some(c => c.id === g.courseId)).length;
+  const myScores = DB.grades.filter(g => courses.some(c => c.id === g.courseId)).map(g => Number(g.score));
+  const avg = myScores.length ? myScores.reduce((a, b) => a + b, 0) / myScores.length : 0;
+
+  $('#content').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon indigo">📚</div>
+        <div class="stat-info"><span class="stat-value">${courses.length.toLocaleString('fa-IR')}</span><span class="stat-label">درس تحت تدریس</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">👨‍🎓</div>
+        <div class="stat-info"><span class="stat-value">${totalStudents.toLocaleString('fa-IR')}</span><span class="stat-label">دانش‌آموز</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">📝</div>
+        <div class="stat-info"><span class="stat-value">${gradeCount.toLocaleString('fa-IR')}</span><span class="stat-label">نمره ثبت‌شده</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">📈</div>
+        <div class="stat-info"><span class="stat-value">${fmtScore(avg)}</span><span class="stat-label">میانگین نمرات</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>📚 دروس من</h3></div>
+      ${courses.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>درس</th><th>کلاس</th><th>تعداد دانش‌آموز</th></tr></thead>
+        <tbody>${courses.map(c => {
+          const cl = getClass(c.classId);
+          const st = getStudentsOfClass(c.classId).length;
+          return `<tr><td>${escapeHTML(c.name)}</td><td>${escapeHTML(cl ? cl.name : '—')}</td><td>${st.toLocaleString('fa-IR')} نفر</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `<div class="empty"><div class="empty-icon">📚</div><p>درسی به شما اختصاص نیافته است</p></div>`}
+    </div>
+  `;
+}
+
+function teacherCourses(user) {
+  setPageTitle('دروس من');
+  const courses = getCoursesOfTeacher(user.id);
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>📚 لیست دروس</h3><span class="badge indigo">${courses.length} درس</span></div>
+      ${courses.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>درس</th><th>کلاس</th><th>تعداد دانش‌آموز</th><th>میانگین</th></tr></thead>
+        <tbody>${courses.map(c => {
+          const cl = getClass(c.classId);
+          const students = getStudentsOfClass(c.classId);
+          const scores = students.map(s => getGrade(s.id, c.id)).filter(Boolean).map(g => Number(g.score));
+          const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+          return `<tr>
+            <td>${escapeHTML(c.name)}</td>
+            <td>${escapeHTML(cl ? cl.name : '—')}</td>
+            <td>${students.length.toLocaleString('fa-IR')} نفر</td>
+            <td>${avg === null ? '<span class="badge gray">بدون نمره</span>' : `<span class="badge ${scoreBadgeClass(avg)}">${fmtScore(avg)}</span>`}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `<div class="empty"><div class="empty-icon">📚</div><p>درسی به شما اختصاص نیافته است</p></div>`}
+    </div>
+  `;
+}
+
+function teacherEnterGrades(user) {
+  setPageTitle('ثبت نمرات');
+  const courses = getCoursesOfTeacher(user.id);
+  if (!courses.length) {
+    $('#content').innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📚</div><p>ابتدا باید درسی به شما اختصاص یابد</p></div></div>`;
+    return;
+  }
+
+  let selectedCourseId = courses[0].id;
+
+  function render() {
+    const course = getCourse(selectedCourseId);
+    const students = getStudentsOfClass(course.classId);
+    const rows = students.map(s => {
+      const g = getGrade(s.id, course.id);
+      return `<tr>
+        <td>${escapeHTML(s.name)}</td>
+        <td><span class="badge gray">${escapeHTML(s.username)}</span></td>
+        <td>
+          <input type="number" min="0" max="20" step="0.25" class="grade-input" data-student="${s.id}"
+            value="${g ? g.score : ''}" placeholder="—" style="width:100px;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;text-align:center;" />
+        </td>
+        <td>${g ? `<span class="badge ${scoreBadgeClass(Number(g.score))}">${fmtScore(g.score)}</span>` : '<span class="badge gray">ثبت نشده</span>'}</td>
+      </tr>`;
+    }).join('');
+
+    $('#content').innerHTML = `
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-header">
+          <h3>✏️ انتخاب درس</h3>
+        </div>
+        <select id="course-select" style="width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;">
+          ${courses.map(c => `<option value="${c.id}" ${c.id === selectedCourseId ? 'selected' : ''}>${escapeHTML(c.name)} — ${escapeHTML(getClass(c.classId)?.name || '')}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>📝 نمرات دانش‌آموزان</h3>
+          <button class="btn btn-primary btn-sm" id="save-grades">💾 ذخیره همه نمرات</button>
+        </div>
+        ${students.length ? `<div class="table-wrap"><table>
+          <thead><tr><th>دانش‌آموز</th><th>نام کاربری</th><th>نمره (از ۲۰)</th><th>وضعیت</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>` : `<div class="empty"><div class="empty-icon">👨‍🎓</div><p>دانش‌آموزی در این کلاس نیست</p></div>`}
+      </div>
+    `;
+
+    $('#course-select').addEventListener('change', (e) => {
+      selectedCourseId = e.target.value;
+      render();
+    });
+
+    const saveBtn = $('#save-grades');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        let changed = 0;
+        $$('.grade-input').forEach(inp => {
+          const studentId = inp.dataset.student;
+          const val = inp.value.trim();
+          const existing = getGrade(studentId, course.id);
+          if (val === '') {
+            if (existing) {
+              DB.grades = DB.grades.filter(g => g.id !== existing.id);
+              changed++;
+            }
+            return;
+          }
+          const num = Number(val);
+          if (isNaN(num) || num < 0 || num > 20) return;
+          if (existing) {
+            if (Number(existing.score) !== num) { existing.score = num; changed++; }
+          } else {
+            DB.grades.push({ id: uid('g'), studentId, courseId: course.id, score: num });
+            changed++;
+          }
+        });
+        saveDB();
+        toast(changed ? `${changed} نمره ذخیره شد` : 'تغییری برای ذخیره نبود', changed ? 'success' : 'warning');
+        render();
+      });
+    }
+  }
+
+  render();
+}
+
+function teacherStudentList(user) {
+  setPageTitle('لیست دانش‌آموزان');
+  const courses = getCoursesOfTeacher(user.id);
+  const classIds = [...new Set(courses.map(c => c.classId))];
+  const students = DB.users.filter(u => u.role === 'student' && classIds.includes(u.classId));
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>👨‍🎓 دانش‌آموزان کلاس‌های من</h3><span class="badge indigo">${students.length} نفر</span></div>
+      ${students.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>نام</th><th>نام کاربری</th><th>کلاس</th><th>میانگین</th></tr></thead>
+        <tbody>${students.map(s => {
+          const cl = getClass(s.classId);
+          const avg = averageOf(s.id);
+          return `<tr>
+            <td>${escapeHTML(s.name)}</td>
+            <td><code>${escapeHTML(s.username)}</code></td>
+            <td>${escapeHTML(cl ? cl.name : '—')}</td>
+            <td>${avg === null ? '<span class="badge gray">بدون نمره</span>' : `<span class="badge ${scoreBadgeClass(avg)}">${fmtScore(avg)}</span>`}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `<div class="empty"><div class="empty-icon">👨‍🎓</div><p>دانش‌آموزی یافت نشد</p></div>`}
+    </div>
+  `;
+}
+
+/* ============================================================
+   پنل دانش‌آموز
+   ============================================================ */
+function renderStudentPage(user) {
+  switch (currentPage) {
+    case 'dashboard': studentDashboard(user); break;
+    case 'myGrades': studentGrades(user); break;
+    default: studentDashboard(user);
+  }
+}
+
+function studentDashboard(user) {
+  setPageTitle('داشبورد دانش‌آموز');
+  const grades = getGradesOfStudent(user.id);
+  const avg = averageOf(user.id);
+  const cl = getClass(user.classId);
+
+  const best = grades.length
+    ? grades.reduce((a, b) => Number(a.score) > Number(b.score) ? a : b)
+    : null;
+  const worst = grades.length
+    ? grades.reduce((a, b) => Number(a.score) < Number(b.score) ? a : b)
+    : null;
+
+  $('#content').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon indigo">📈</div>
+        <div class="stat-info"><span class="stat-value">${avg === null ? '—' : fmtScore(avg)}</span><span class="stat-label">میانگین کل</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">📚</div>
+        <div class="stat-info"><span class="stat-value">${grades.length.toLocaleString('fa-IR')}</span><span class="stat-label">درس ثبت‌شده</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">🏫</div>
+        <div class="stat-info"><span class="stat-value" style="font-size:16px;">${escapeHTML(cl ? cl.name : '—')}</span><span class="stat-label">کلاس</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">🏆</div>
+        <div class="stat-info"><span class="stat-value">${best ? fmtScore(best.score) : '—'}</span><span class="stat-label">بهترین نمره</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>📝 کارنامه من</h3></div>
+      ${grades.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>درس</th><th>نمره</th><th>وضعیت</th></tr></thead>
+        <tbody>${grades.map(g => {
+          const co = getCourse(g.courseId);
+          const sc = Number(g.score);
+          return `<tr>
+            <td>${escapeHTML(co ? co.name : '—')}</td>
+            <td><span class="badge ${scoreBadgeClass(sc)}">${fmtScore(sc)}</span></td>
+            <td>${sc >= 10 ? '<span class="badge green">قبول</span>' : '<span class="badge red">نیاز به تلاش</span>'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `<div class="empty"><div class="empty-icon">📭</div><p>هنوز نمره‌ای برای شما ثبت نشده است</p></div>`}
+    </div>
+
+    ${worst && worst.id !== best?.id ? `
+      <div class="card">
+        <div class="card-header"><h3>⚠️ نیازمند توجه</h3></div>
+        <p style="color:#64748b;font-size:13.5px;">
+          پایین‌ترین نمره شما در درس <strong>${escapeHTML(getCourse(worst.courseId)?.name || '—')}</strong> با نمره
+          <span class="badge ${scoreBadgeClass(Number(worst.score))}">${fmtScore(worst.score)}</span> است.
+        </p>
+      </div>
+    ` : ''}
+  `;
+}
+
+function studentGrades(user) {
+  setPageTitle('کارنامه من');
+  const grades = getGradesOfStudent(user.id);
+  const avg = averageOf(user.id);
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 کارنامه کامل</h3>
+        ${avg !== null ? `<span class="badge indigo">میانگین: ${fmtScore(avg)}</span>` : ''}
+      </div>
+      ${grades.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>درس</th><th>معلم</th><th>نمره</th><th>وضعیت</th></tr></thead>
+        <tbody>${grades.map(g => {
+          const co = getCourse(g.courseId);
+          const t = co ? getUser(co.teacherId) : null;
+          const sc = Number(g.score);
+          return `<tr>
+            <td>${escapeHTML(co ? co.name : '—')}</td>
+            <td>${escapeHTML(t ? t.name : '—')}</td>
+            <td><span class="badge ${scoreBadgeClass(sc)}">${fmtScore(sc)}</span></td>
+            <td>${sc >= 10 ? '<span class="badge green">قبول</span>' : '<span class="badge red">نیاز به تلاش</span>'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `<div class="empty"><div class="empty-icon">📭</div><p>هنوز نمره‌ای ثبت نشده است</p></div>`}
+    </div>
+  `;
+}
+
+/* ============================================================
+   کنترل‌های سراسری (منو موبایل، خروج، ریست)
+   ============================================================ */
+function closeSidebar() {
+  $('#sidebar').classList.remove('open');
+  $('#overlay').classList.remove('active');
+}
+
+function openSidebar() {
+  $('#sidebar').classList.add('open');
+  $('#overlay').classList.add('active');
+}
+
+function bindGlobalControls() {
+  $('#menu-btn').addEventListener('click', openSidebar);
+  $('#overlay').addEventListener('click', closeSidebar);
+  $('#logout-btn').addEventListener('click', () => {
+    if (confirm('از حساب خود خارج می‌شوید؟')) logout();
+  });
+}
+
+/* ============================================================
+   راه‌اندازی
+   ============================================================ */
+function init() {
+  loadDB();
+  loadSession();
+  initLogin();
+  bindGlobalControls();
+
+  if (session && getUser(session.userId)) {
+    enterApp();
+  } else {
+    $('#login-screen').classList.remove('hidden');
+    $('#app').classList.add('hidden');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
